@@ -8,6 +8,12 @@ const { factory } = require('typescript');
 const argv = yargs(hideBin(process.argv))
   .example('$0 "./source-file.ts"')
   .usage('$0 <file>', 'Rewrite your imports using the Typescript AST. Use "import type" where possible.', (yargs) => { 
+    yargs.option('s', {
+      alias: 'semicolon',
+      default: false,
+      describe: 'Output imports with trailing semicolons',
+      type: 'boolean'
+    })
     yargs.positional('file', {
       describe: 'File path that will be read.',
       type: 'string'
@@ -21,6 +27,7 @@ const compilerOptions = ts.parseJsonConfigFileContent(configFile.config, ts.sys,
 compilerOptions.options.noEmit = true
 const program = ts.createProgram([argv.file], compilerOptions);
 const typeChecker = program.getTypeChecker();
+
 
 const Imports = new Map()
 const ImportsByModuleSpecifier = new Map()
@@ -167,16 +174,33 @@ function modifyImportsByUsage(sourceFile) {
 }
 
 const result = modifyImportsByUsage(sourceFile)
+const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 
-const printer = ts.createPrinter();
-
+let replacements = []
+let storedLines = []
 result.transformed[0].statements.forEach((node) => {
   if (ts.isImportDeclaration(node)) {
+    let n = printer.printNode(ts.EmitHint.Unspecified, node, sourceFile)
+    if (!argv.semicolon) {
+      n = n.replace(';', '')
+    }
+
+    storedLines.push(n)
     if (node.original) {
-      console.log("original: ", printer.printNode(ts.EmitHint.Unspecified, node.original, sourceFile))
-      console.log("replacement: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
-    } else {
-      console.log("new: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
+      const target = printer.printNode(ts.EmitHint.Unspecified, node.original, sourceFile)
+      const replacement = storedLines.join("\n");
+      storedLines = [];
+      replacements.push({
+        target: target.replace(';', ''),
+        replacement: replacement
+      });
     }
   }
 })
+
+let source = sourceFile.getText()
+replacements.forEach((o) => {
+  source = source.replace(o.target, o.replacement)
+})
+
+fs.writeFileSync(argv.file, source);
