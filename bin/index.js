@@ -169,30 +169,14 @@ function modifyImportsByUsage(sourceFile) {
 const result = modifyImportsByUsage(sourceFile)
 
 const printer = ts.createPrinter();
-// result.transformed[0].statements.forEach((node) => {
-//   if (ts.isImportDeclaration(node)) {
-//     console.log(printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
-//   }
-// })
-
-// console.log("")
-// console.log("")
-// console.log("-------------------")
-// console.log("")
-// console.log("")
 
 result.transformed[0].statements.forEach((node) => {
-  printer.printNode(ts.EmitHint.SourceFile, node, sourceFile)
+  if (ts.isImportDeclaration(node)) {
+    if (node.original) {
+      console.log("original: ", printer.printNode(ts.EmitHint.Unspecified, node.original, sourceFile))
+      console.log("replacement: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
+    } else {
+      console.log("new: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
+    }
+  }
 })
-
-// result.transformed[0].statements.forEach((node) => {
-//   if (ts.isImportDeclaration(node)) {
-//     if (node.original) {
-//       console.log("original: ", printer.printNode(ts.EmitHint.Unspecified, node.original, sourceFile))
-//       console.log("replacement: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
-//     } else {
-//       console.log("new: ", printer.printNode(ts.EmitHint.Unspecified, node, sourceFile))
-//     }
-    
-//   }
-// })
