@@ -4,7 +4,7 @@
   "description": "Modify TypeScript source code to change import statements to import type statements if an imported thing is only used as a type.",
   "main": "bin/index.js",
   "bin": {
-    "modify-type-imports": "./bin/index.js"
+    "modify-type-imports": "bin/index.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -28,5 +28,6 @@
   "dependencies": {
     "typescript": "^4.1.2",
     "yargs": "^16.1.1"
-  }
+  },
+  "devDependencies": {}
 }
