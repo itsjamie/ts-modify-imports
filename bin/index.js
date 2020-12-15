@@ -42,8 +42,14 @@ function collectUsageOfImportSymbols(node, sourceFile) {
   const syntaxKind = ts.SyntaxKind[node.kind];
 
   if (ts.isImportDeclaration(node)) {
-    const namedBindings = node.importClause.namedBindings.elements;
-    namedBindings.forEach((element) => {
+    // only handle named imports
+    if (node.importClause && !node.importClause.namedBindings) return
+    if (ts.isNamedImports(node.importClause.namedBindings) == false) return
+    // If there is a default import we want to skip this.
+    // todo(verbose log)
+    if (node.importClause.name) return
+
+    node.importClause.namedBindings.elements.forEach((element) => {
       const symbol = typeChecker.getSymbolAtLocation(element.name)
       if (node.importClause.isTypeOnly) {
         Imports.set(symbol, false)
@@ -85,6 +91,11 @@ const transformer = (context) => {
      */
     function visit(node) {
       if (ts.isImportDeclaration(node)) {
+        // only handle named imports
+        if (node.importClause && !node.importClause.namedBindings) return
+        if (ts.isNamedImports(node.importClause.namedBindings) == false) return
+        if (node.importClause.name) return
+
         const typeOnly = node.importClause.isTypeOnly
         let importData = ImportsByModuleSpecifier.get(node.moduleSpecifier.getText(sourceFile))
         
@@ -141,21 +152,25 @@ function modifyImportsByUsage(sourceFile) {
     if (ts.isImportDeclaration(stmt)) {
       const runtime = []
       const types = []
-      const namedBindings = stmt.importClause.namedBindings.elements;
+      // only handle named imports
+      if (stmt.importClause && !stmt.importClause.namedBindings) return
+      if (ts.isNamedImports(stmt.importClause.namedBindings) == false) return
+      if (stmt.importClause.name) return
+
       if (!stmt.importClause.isTypeOnly) {
         ImportDeclarationsByModuleSpecifier.set(stmt.moduleSpecifier.getText(sourceFile) + "-runtime", true)
       } else {
         ImportDeclarationsByModuleSpecifier.set(stmt.moduleSpecifier.getText(sourceFile) + "-types", true)
       }
 
-      namedBindings.forEach((element) => {
+      stmt.importClause.namedBindings.elements.forEach((element) => {
         if (Imports.get(element.symbol)) {
           runtime.push(element.symbol)
         } else {
           types.push(element.symbol)
         }
       });
-
+      
       if (ImportsByModuleSpecifier.has(stmt.moduleSpecifier.getText(sourceFile))) {
         const imports = ImportsByModuleSpecifier.get(stmt.moduleSpecifier.getText(sourceFile))
         imports.runtime = imports.runtime.concat(runtime)
@@ -181,12 +196,13 @@ let storedLines = []
 result.transformed[0].statements.forEach((node) => {
   if (ts.isImportDeclaration(node)) {
     let n = printer.printNode(ts.EmitHint.Unspecified, node, sourceFile)
+    if (node.original && node.original.getText(sourceFile) === n) return
     if (!argv.semicolon) {
       n = n.replace(';', '')
     }
 
     storedLines.push(n)
-    if (node.original) {
+    if (node.original && node.original.getText(sourceFile) !== n) {
       const target = printer.printNode(ts.EmitHint.Unspecified, node.original, sourceFile)
       const replacement = storedLines.join("\n");
       storedLines = [];
@@ -197,6 +213,8 @@ result.transformed[0].statements.forEach((node) => {
     }
   }
 })
+
+console.log(replacements)
 
 let source = sourceFile.getText()
 replacements.forEach((o) => {
